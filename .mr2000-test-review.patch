@@ -1,0 +1,197 @@
+diff --git a/target/linux/qualcommax/dts/ipq5018-mr2000.dts b/target/linux/qualcommax/dts/ipq5018-mr2000.dts
+--- a/target/linux/qualcommax/dts/ipq5018-mr2000.dts
++++ b/target/linux/qualcommax/dts/ipq5018-mr2000.dts
+@@ -12,6 +12,18 @@
+ 	chosen {
+ 		bootargs-append = " root=/dev/ubiblock0_0 coherent_pool=2M";
+ 		stdout-path = "serial0:115200n8";
++	};
++
++	gpio-leds {
++		compatible = "gpio-leds";
++
++		usb {
++			color = <LED_COLOR_ID_BLUE>;
++			function = LED_FUNCTION_USB;
++			gpios = <&tlmm 17 GPIO_ACTIVE_HIGH>;
++			trigger-sources = <&usb_port1>;
++			linux,default-trigger = "usbport";
++		};
+ 	};
+ 
+ 	regulator_fixed_5p0: regulator-s0500 {
+@@ -201,126 +213,6 @@
+ 	};
+ };
+ 
+-&qpic_nand {
+-	nand@0 {
+-		partitions {
+-			compatible = "fixed-partitions";
+-			#address-cells = <1>;
+-			#size-cells = <1>;
+-
+-			/delete-node/ partition-devinfo;
+-
+-			partition@0 {
+-				label = "0:sbl1";
+-				reg = <0x0000000 0x0080000>;
+-				read-only;
+-			};
+-
+-			partition@80000 {
+-				label = "0:mibib";
+-				reg = <0x0080000 0x0080000>;
+-				read-only;
+-			};
+-
+-			partition@100000 {
+-				label = "0:qsee";
+-				reg = <0x0100000 0x0100000>;
+-				read-only;
+-			};
+-
+-			partition@200000 {
+-				label = "0:devcfg";
+-				reg = <0x0200000 0x0040000>;
+-				read-only;
+-			};
+-
+-			partition@240000 {
+-				label = "0:cdt";
+-				reg = <0x0240000 0x0040000>;
+-				read-only;
+-			};
+-
+-			partition@280000 {
+-				label = "0:appsblenv";
+-				reg = <0x0280000 0x0080000>;
+-			};
+-
+-			partition@300000 {
+-				label = "0:appsbl";
+-				reg = <0x0300000 0x0140000>;
+-				read-only;
+-			};
+-
+-			partition@440000 {
+-				label = "0:art";
+-				reg = <0x0440000 0x0100000>;
+-				read-only;
+-			};
+-
+-			partition@540000 {
+-				label = "TRAINING";
+-				reg = <0x0540000 0x0080000>;
+-				read-only;
+-			};
+-
+-			partition@5c0000 {
+-				label = "u_env";
+-				reg = <0x05c0000 0x0080000>;
+-			};
+-
+-			partition@640000 {
+-				label = "s_env";
+-				reg = <0x0640000 0x0040000>;
+-			};
+-
+-			devinfo: partition@680000 {
+-				label = "devinfo";
+-				reg = <0x0680000 0x0040000>;
+-				read-only;
+-
+-				nvmem-layout {
+-					compatible = "ascii-eq-delim-env";
+-
+-					hw_mac_addr: hw_mac_addr {
+-						compatible = "mac-base";
+-						#nvmem-cell-cells = <1>;
+-					};
+-				};
+-			};
+-
+-			partition@6c0000 {
+-				label = "kernel";
+-				reg = <0x06c0000 0x05200000>;
+-			};
+-
+-			partition@ec0000 {
+-				label = "rootfs";
+-				reg = <0x0ec0000 0x04a00000>;
+-			};
+-
+-			partition@58c0000 {
+-				label = "alt_kernel";
+-				reg = <0x58c0000 0x05200000>;
+-			};
+-
+-			partition@60c0000 {
+-				label = "alt_rootfs";
+-				reg = <0x60c0000 0x04a00000>;
+-			};
+-
+-			partition@aac0000 {
+-				label = "sysdiag";
+-				reg = <0x0aac0000 0x00200000>;
+-			};
+-
+-			partition@acc0000 {
+-				label = "syscfg";
+-				reg = <0x0acc0000 0x04400000>;
+-			};
+-		};
+-	};
+-};
+-
+ &usbphy0 {
+ 	status = "okay";
+ 	vdd-supply = <&regulator_fixed_5p0>;
+@@ -332,11 +224,21 @@
+ };
+ 
+ &usb {
+-	status = "okay";
+-
++	#address-cells = <1>;
++	#size-cells = <0>;
++
++	phys = <&usbphy0>;
++	phy-names = "usb2-phy";
++
++	vbus-supply = <&regulator_fixed_5p0>;
+ 	dr_mode = "host";
+ 
+-	qca,host = <1>;
+-	qcom,multiplexed-phy;
+-	qcom,phy-mux-regs = <0x16 0x2540>;
+-};
++	qcom,select-utmi-as-pipe-clk;
++
++	status = "okay";
++
++	usb_port1: port@1 {
++		reg = <1>;
++		#trigger-source-cells = <0>;
++	};
++};
+diff --git a/target/linux/qualcommax/image/ipq50xx.mk b/target/linux/qualcommax/image/ipq50xx.mk
+--- a/target/linux/qualcommax/image/ipq50xx.mk
++++ b/target/linux/qualcommax/image/ipq50xx.mk
+@@ -5,6 +5,7 @@
+ 	IMAGE/factory.bin := append-kernel | pad-to $$$$(KERNEL_SIZE) | \
+ 		append-ubi | linksys-image type=MX2000
+ 	DEVICE_PACKAGES := ath11k-firmware-ipq5018-qcn6122 \
+-		ipq-wifi-linksys_mx2000 kmod-usb-storage
++		ipq-wifi-linksys_mx2000 kmod-usb-storage \
++		kmod-usb-ledtrig-usbport
+ endef
+ TARGET_DEVICES += linksys_mr2000
+diff --git a/package/boot/uboot-tools/Makefile b/package/boot/uboot-tools/Makefile
+--- a/package/boot/uboot-tools/Makefile
++++ b/package/boot/uboot-tools/Makefile
+@@ -4,3 +4,4 @@
+ PKG_VERSION:=2026.07
+ PKG_RELEASE:=6
++
+ PKG_SOURCE:=$(PKG_DISTNAME)-$(PKG_VERSION).tar.bz2
